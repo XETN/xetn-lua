@@ -1,6 +1,6 @@
 local require = require
 local type = type
-local table = table
+local table, string = table, string
 local tonumber = tonumber
 local print = print
 module("request")
@@ -118,4 +118,19 @@ function Meta:data(key)
         end
     end
     return result
+end
+
+function Meta:cookie(key)
+    local cookie = self.__cookie__
+    if cookie == nil then
+        cookie = __internal__.getHeader(self.__raw__, "Cookie")
+        if cookie == nil then
+            return nil
+        end
+        self.__cookie__ = cookie
+    end
+    --local key = "[%w%^%$%%%*%+%-%.!#&'_`|~]+"
+    local val = "[%w%^%$%%%*%+%-%.%(%)%[%]%?!#&'_`|~/:<=>@{}]+"
+    local pattern = string.format("%s=(%s)", key, val)
+    return cookie:match(pattern)
 end
