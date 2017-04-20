@@ -1,6 +1,8 @@
 local require = require
 local type = type
 local print = print
+local string = string
+local os = os
 module("response")
 
 local __internal__ = require("xetn.lua.http")
@@ -39,4 +41,18 @@ function Meta:version(ver)
         ver = 1.1
     end
     __internal__.setVersion(self.__raw__, ver)
+end
+
+function Meta:cookie(key, val, expire)
+    local cookie
+    if expire == nil then
+        cookie = string.format("%s=%s; domain=%s; path=%s",
+            key, val, self.__domain__, self.__path__)
+    else
+        local exp = os.time() + expire
+        cookie = string.format("%s=%s; domain=%s; path=%s; expires=%s",
+            key, val, self.__domain__, self.__path__,
+            os.date("!%a, %d %b %Y %H:%M:%S GMT", exp))
+    end
+    __internal__.putHeader(self.__raw__, "Set-Cookie", cookie)
 end

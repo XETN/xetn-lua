@@ -17,6 +17,14 @@ function Meta:path()
     return __internal__.getPath(self.__raw__)
 end
 
+function Meta:host()
+    return __internal__.getHeader(self.__raw__, "Host")
+end
+
+function Meta:domain()
+    return __internal__.getDomain(self.__raw__)
+end
+
 function Meta:header(field)
     return __internal__.getHeader(self.__raw__, field)
 end

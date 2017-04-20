@@ -151,6 +151,9 @@ end
 local function dispatch(router, req, res)
 	req.params = {}
 	local action = findAction(router, req:path(), req:method(), req.params)
+	-- TODO find a better way to share context infomation
+	res.__domain__ = req:domain()
+	res.__path__   = req:path()
 	-- TODO initialize res
 	res:version(1.1)
 	local result
