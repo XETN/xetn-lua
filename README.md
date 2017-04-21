@@ -12,11 +12,11 @@ Certainly, there exists many bugs.
 
 + [x] Request
 + [x] Response
-+ [x] Restful router
++ [x] Restful router(need refining)
 + [x] Native logger
++ [x] Cookie(basic)
 + [ ] Session (redis)
-+ [ ] Cookie Manager
-+ [ ] WebSocket
++ [ ] WebSocket(pending)
 
 ## Notice
 
