@@ -1,8 +1,8 @@
-local require, loadfile, pcall = require, loadfile, pcall
-local pairs = pairs
+local require, package = require, package
+local loadfile, pcall = loadfile, pcall
+local type, pairs, ipairs = type, pairs, ipairs
 local getmetatable, setmetatable = getmetatable, setmetatable
-local os = os
-local type = type
+local os, string, table = os, string, table
 local print = print
 
 -- forbid os.exit()
@@ -22,7 +22,7 @@ local METHOD_POST   = "POST"
 local METHOD_PUT    = "PUT"
 local METHOD_DELETE = "DELETE"
 
-local NOT_FOUND = "Not Found"
+local NOT_FOUND      = "Not Found"
 local INTERNAL_ERROR = "Internal Error"
 
 -- return type flag
@@ -30,53 +30,40 @@ local TYPE_STR  = 0x01
 local TYPE_FILE = 0x02
 
 local function pathToPattern(path)
-    local name, pair = {}, {}
-    local s, e = 0, 0
+    local kset = {}
+    local S, E, L = 1, 1, 1
     local index = 1
-    -- match the syntax like (xxxx), (xxx%)xxx)
-    s, e = path:find("%(.-[^%%]%)", e)
-    while s ~= nil do
-        -- if the character before ( is %, then it is unacceptable
-        if s == 1 or path:sub(s - 1, s - 1) ~= "%" then
-            pair[index] = s
-            index = index + 1
+    local partial = {}
+    partial[#partial + 1] = "^"
+
+    while true do
+        S, E = path:find(":[%w_]+", L)
+        -- end point
+        if S == nil then break end
+        -- save the named capturer with its index
+        kset[path:sub(S + 1, E)] = index
+        index = index + 1
+
+        if S ~= L then
+            -- save the characters between the last and current named capturer
+            partial[#partial + 1] = path:sub(L, S - 1)
         end
-        s, e = path:find("%(.-[^%%]%)", e)
-    end
-    e = 0
-    index = 1
-    -- match the syntax like :aaaa, :aaa_aaa
-    s, e = path:find(":[%w_]+", e)
-    while s ~= nil do
-        name[index] = s
-        index = index + 1
-        s, e = path:find(":[%w_]+", e)
-    end
-    index = 1
-    local i, j = 1, 1
-    while i <= #name and j <= #pair do
-        if pair[j] > name[i] then
-            name[i] = index
-            i = i + 1
-        else
-            j = j + 1
+
+        if path:sub(E + 1, E + 1) == "(" then
+            S, E = path:find("%([^%)]+%)", E + 1)
+            partial[#partial + 1] = path:sub(S, E)
+        else 
+            partial[#partial + 1] = "([^/]+)"
         end
-        index = index + 1
-    end
-    while i <= #name do
-        name[i] = index
-        i = i + 1
-        index = index + 1
+        L = E + 1
     end
 
-    index = 1
-    local key = {}
-    for k in path:gmatch(":([%w_]+)") do
-        key[k] = name[index]
-        index = index + 1
+    if L ~= #path then
+        partial[#partial + 1] = path:sub(L, #path)
     end
-    pattern = path:gsub(":[%w_]+", "%([^/]+%)")
-    return pattern, key
+    partial[#partial + 1] = "$"
+
+    return table.concat(partial), kset, index - 1
 end
 
 ------------------------------------------------------------------------
@@ -85,14 +72,23 @@ end
 
 local XetnApp = {}
 function XetnApp:register(method, path, action)
-	if self.actions[path] == nil then
-		local pattern, keys = pathToPattern(path)
-		self.actions[path] = {
-			pattern = pattern,
-			keys = keys
-		}
+	local arr = self.actions
+	for i, v in ipairs(arr) do
+		if v.__path__ == path then
+			-- it will override the existed action
+			arr[i][method:upper()] = action
+			return self
+		end
 	end
-	self.actions[path][method:upper()] = action
+	local pattern, keys, nkey = pathToPattern(path)
+	local set = {
+		__path__    = path,
+		__pattern__ = pattern,
+		__keys__    = keys,
+		__nkey__    = nkey
+	}
+	set[method:upper()] = action
+	arr[#arr + 1] = set
 	return self
 end
 
@@ -119,7 +115,7 @@ end
 local XetnAppRef = {
 	actions = nil
 }
-setmetatable(XetnAppRef, {__index = XetnApp})
+setmetatable(XetnAppRef, { __index = XetnApp })
 
 function new()
 	XetnAppRef.actions = {}
@@ -131,17 +127,28 @@ function getLogger()
 end
 
 local function findAction(router, path, method, params)
-	local actonMap = nil
-	for _, v in pairs(router) do
-		local result = { path:match(v.pattern) }
-		if #result ~= 0 then
-			for k, i in pairs(v.keys) do
-				params[k] = result[i]
+	local actionMap = nil
+	-- process router in register order
+	for _, v in ipairs(router) do
+		if v.__nkey__ == 0 then
+			-- plain compare
+			if path == v.__path__ then
+				actionMap = v
+				break
 			end
-			actionMap = v
-			break
+		else
+			-- pattern match
+			local result = { path:match(v.__pattern__) }
+			if #result == v.__nkey__ then
+				for k, i in pairs(v.__keys__) do
+					params[k] = result[i]
+				end
+				actionMap = v
+				break
+			end
 		end
 	end
+
 	if actionMap == nil then
 		return nil
 	end
@@ -195,6 +202,8 @@ function execute(app, req, res, net)
 	local isOK = true
 	if XetnAppMap[app] == nil then
 		local func
+		-- register the root of app, so app can use its module correctly
+		package.path = string.format("%s;%s/?.lua", package.path, app)
 		func, err = loadfile(app .. "/init.lua")
 		isOK = func ~= nil
 		if isOK then
