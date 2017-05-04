@@ -45,13 +45,16 @@ end
 
 function Meta:cookie(key, val, expire)
     local cookie
+    -- getDomain & getPath functions can only be used internally
+    local domain = __internal__.getDomain(self.__raw__)
+    local path   = __internal__.getPath(self.__raw__)
     if expire == nil then
         cookie = string.format("%s=%s; domain=%s; path=%s",
-            key, val, self.__domain__, self.__path__)
+            key, val, domain, path)
     else
         local exp = os.time() + expire
         cookie = string.format("%s=%s; domain=%s; path=%s; expires=%s",
-            key, val, self.__domain__, self.__path__,
+            key, val, domain, path,
             os.date("!%a, %d %b %Y %H:%M:%S GMT", exp))
     end
     __internal__.putHeader(self.__raw__, "Set-Cookie", cookie)

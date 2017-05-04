@@ -158,9 +158,6 @@ end
 local function dispatch(router, req, res)
 	req.params = {}
 	local action = findAction(router, req:path(), req:method(), req.params)
-	-- TODO find a better way to share context infomation
-	res.__domain__ = req:domain()
-	res.__path__   = req:path()
 	-- TODO initialize res
 	res:version(1.1)
 	local result
@@ -191,10 +188,10 @@ local function dispatch(router, req, res)
 end
 
 local XetnAppMap = {}
-function execute(app, req, res, net)
+function execute(app, req, res)
 	print("APP PATH => " .. app)
-	req = { __raw__ = req, __net__ = net }
-	res = { __raw__ = res, __net__ = net }
+	req = { __raw__ = req }
+	res = { __raw__ = res }
 	setmetatable(req, { __index = Req.Meta })
 	setmetatable(res, { __index = Res.Meta })
 	-- check if there already exists the specific app

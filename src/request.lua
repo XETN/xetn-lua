@@ -79,7 +79,7 @@ function Meta:body()
             return nil
         end
         while len > 0 do
-            local c = __internal__.getBody(self.__net__, len)
+            local c = __internal__.getBody(self.__raw__, len)
             if c ~= nil then
                 len = len - #c
                 content[#content + 1] = c
@@ -97,7 +97,7 @@ function Meta:skipBody()
             return
         end
         while len > 0 do
-            local l = __internal__.skipBody(self.__net__, len)
+            local l = __internal__.skipBody(self.__raw__, len)
             --print("L->", l)
             if l ~= nil then
                 len = len - l
